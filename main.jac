@@ -2,6 +2,7 @@ import from uuid { uuid4 }
 import from datetime { datetime, timedelta, date }
 import from byllm.lib { Model }
 import from typing { Any }
+import from json { loads, JSONDecodeError }
 cl import "./styles.css";
 
 glob llm = Model(model_name="gemini/gemini-2.5-flash");
@@ -14,13 +15,19 @@ node Todo {
         deadline: date = date.today() + timedelta(days=1);
 }
 
+obj TodoItem {
+    has id: str,
+        title: str,
+        done: bool,
+        completion_time: int,
+        deadline: str;
+}
+
 
 """Add a todo"""
 def:pub add_todo(title: str, completion_time: int = 10, deadline: str = "2025-02-10") -> dict {
     due = datetime.strptime(deadline, "%Y-%m-%d").date();
-    print("FUCKED OVER HERE");
     todo = root ++> Todo(id=str(uuid4()), title=title, completion_time=completion_time, deadline=due);
-    print("FUCKED HERE");
     return {
         "id": todo[0].id, "title": todo[0].title,
         "done": todo[0].done,
@@ -64,11 +71,30 @@ def:pub delete_todo(id: str) -> dict {
     return {};
 }
 
+"""Generate an action plan"""
+def:pub generate_action_plan(tasks: list, focus_minutes: int) -> list {
+    try {
+        # We explicitly pass the context to the prompt mechanism
+        planned_items = generate_action_plan_inner(tasks, focus_minutes);
+        return [
+            {"id": t.id, "title": t.title, "done": t.done, "completion_time": t.completion_time, "deadline": t.deadline} 
+            for t in planned_items
+        ];
+    } except Exception as e {
+        print("LLM ERROR:", e);
+        return [];
+    }
+}
+
+def:pub generate_action_plan_inner(tasks: list[TodoItem], focus_minutes: int) -> list[TodoItem] by llm();
+
 cl def:pub app -> Any {
     has items: list = [],
         text: str = "",
         time: int = None,
-        due: str = "";
+        due: str = "",
+        focus_minutes: int = None,
+        plan: list = [];
 
     async can with entry {
         items = await get_todos();
@@ -103,6 +129,11 @@ cl def:pub app -> Any {
         items = items.filter(lambda t: Any -> bool { return t.id != id; });
     }
 
+    async def generate_plan() -> list {
+        uncompleted = items.filter(lambda t: Any -> bool { return not t.done; });
+        plan = await generate_action_plan(uncompleted, focus_minutes);
+    }
+
     remaining = items.filter(lambda t: Any -> bool { return not t.done; }).length;
 
     return
@@ -114,7 +145,9 @@ cl def:pub app -> Any {
                     value={text}
                     onChange={lambda e: Any -> None { text = e.target.value; }}
                     onKeyPress={lambda e: Any -> None {
-                        if e.key == "Enter" { add(); }
+                        if e.key == "Enter" { 
+                            add(); 
+                        }
                     }}
                     placeholder="What needs to be done?"
                 />
@@ -133,6 +166,22 @@ cl def:pub app -> Any {
                     placeholder="Mins"
                 />
                 <button class="btn-add" onClick={add}>Add</button>
+            </div>
+        
+            <div style={{"padding": "10px", "background": "#f0f0f0", "margin": "10px 0"}}>
+                <h3>Focus Planner</h3>
+                <input 
+                    type="number" 
+                    value={focus_minutes} 
+                    onChange={lambda e: Any -> None { focus_minutes = e.target.value; }} 
+                    placeholder="Mins to focus"
+                />
+                <button onClick={generate_plan}>Generate Plan</button>
+                <ol>
+                    {[ 
+                        <li>{t["title"]} ({t["completion_time"]}m)</li> for t in plan 
+                    ]}
+                </ol>
             </div>
             {[
                 <div key={t.id} class="todo-item">
