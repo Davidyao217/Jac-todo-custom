@@ -65,3 +65,8 @@
 .count-num {
     margin-right: 0.25em;
 }
+
+.todo-meta {
+    font-size: 0.85em;
+    color: #666;
+}

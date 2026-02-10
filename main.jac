@@ -1,35 +1,38 @@
 import from uuid { uuid4 }
+import from datetime { datetime, timedelta, date }
 import from byllm.lib { Model }
+import from typing { Any }
 cl import "./styles.css";
 
 glob llm = Model(model_name="gemini/gemini-2.5-flash");
-
-enum Category { WORK, PERSONAL, SHOPPING, HEALTH, OTHER }
 
 node Todo {
     has id: str,
         title: str,
         done: bool = False,
-        category: str = "other";
+        completion_time: int = 10, # in minutes
+        deadline: date = date.today() + timedelta(days=1);
 }
 
-"""Categorize a todo based on its title."""
-def categorize(title: str) -> Category by llm();
 
-"""Add a todo with AI categorization."""
-def:pub add_todo(title: str) -> dict {
-    category = str(categorize(title)).split(".")[-1].lower();
-    todo = root ++> Todo(id=str(uuid4()), title=title, category=category);
+"""Add a todo"""
+def:pub add_todo(title: str, completion_time: int = 10, deadline: str = "2025-02-10") -> dict {
+    due = datetime.strptime(deadline, "%Y-%m-%d").date();
+    print("FUCKED OVER HERE");
+    todo = root ++> Todo(id=str(uuid4()), title=title, completion_time=completion_time, deadline=due);
+    print("FUCKED HERE");
     return {
         "id": todo[0].id, "title": todo[0].title,
-        "done": todo[0].done, "category": todo[0].category
+        "done": todo[0].done,
+        "completion_time": todo[0].completion_time,
+        "deadline": todo[0].deadline,
     };
 }
 
 """Get all todos."""
 def:pub get_todos -> list {
     return [
-        {"id": t.id, "title": t.title, "done": t.done, "category": t.category}
+        {"id": t.id, "title": t.title, "done": t.done, "completion_time": t.completion_time, "deadline": t.deadline}
         for t in [root-->](?:Todo)
     ];
 }
@@ -41,7 +44,9 @@ def:pub toggle_todo(id: str) -> dict {
             todo.done = not todo.done;
             return {
                 "id": todo.id, "title": todo.title,
-                "done": todo.done, "category": todo.category
+                "done": todo.done,
+                "completion_time": todo.completion_time,
+                "deadline": todo.deadline,
             };
         }
     }
@@ -59,9 +64,11 @@ def:pub delete_todo(id: str) -> dict {
     return {};
 }
 
-cl def:pub app -> any {
+cl def:pub app -> Any {
     has items: list = [],
-        text: str = "";
+        text: str = "",
+        time: int = None,
+        due: str = "";
 
     async can with entry {
         items = await get_todos();
@@ -69,7 +76,7 @@ cl def:pub app -> any {
 
     async def add -> None {
         if text.trim() {
-            todo = await add_todo(text.trim());
+            todo = await add_todo(text.trim(), time,  due);
             items = items.concat([todo]);
             text = "";
         }
@@ -77,23 +84,26 @@ cl def:pub app -> any {
 
     async def toggle(id: str) -> None {
         await toggle_todo(id);
-        items = items.map(
-            lambda t: any -> any {
-                return {
+        items = [
+            (
+                {
                     "id": t.id, "title": t.title,
-                    "done": not t.done, "category": t.category
+                    "done": not t.done,
+                    "completion_time": t.completion_time,
+                    "deadline": t.deadline
                 }
-                if t.id == id else t;
-            }
-        );
+                if t.id == id else t
+            )
+            for t in items
+        ];
     }
 
     async def remove(id: str) -> None {
         await delete_todo(id);
-        items = items.filter(lambda t: any -> bool { return t.id != id; });
+        items = items.filter(lambda t: Any -> bool { return t.id != id; });
     }
 
-    remaining = items.filter(lambda t: any -> bool { return not t.done; }).length;
+    remaining = items.filter(lambda t: Any -> bool { return not t.done; }).length;
 
     return
         <div class="container">
@@ -102,11 +112,25 @@ cl def:pub app -> any {
                 <input
                     class="input"
                     value={text}
-                    onChange={lambda e: any -> None { text = e.target.value; }}
-                    onKeyPress={lambda e: any -> None {
+                    onChange={lambda e: Any -> None { text = e.target.value; }}
+                    onKeyPress={lambda e: Any -> None {
                         if e.key == "Enter" { add(); }
                     }}
                     placeholder="What needs to be done?"
+                />
+                <input
+                    type = "number"
+                    class="input"
+                    value={time}
+                    onChange={lambda e: Any -> None { time = e.target.value; }}
+                    placeholder="Mins"
+                />
+                <input
+                    type = "date"
+                    class="input"
+                    value={due}
+                    onChange={lambda e: Any -> None { due = e.target.value; }}
+                    placeholder="Mins"
                 />
                 <button class="btn-add" onClick={add}>Add</button>
             </div>
@@ -120,7 +144,10 @@ cl def:pub app -> any {
                     <span class={"todo-title " + ("todo-done" if t.done else "")}>
                         {t.title}
                     </span>
-                    <span class="category">{t.category}</span>
+                    <span class="todo-meta">
+                        Time: {t.completion_time}m
+                        {(" | Due: " + t.deadline) if t.deadline else ""}
+                    </span>
                     <button
                         class="btn-delete"
                         onClick={lambda -> None { remove(t.id); }}
