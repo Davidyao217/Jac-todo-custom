@@ -2,6 +2,7 @@
 
 ## Student Info
 **Name:** David Yao
+
 **UMID:** 47275006
 
 ## Feature: AI Task Planner
@@ -14,9 +15,14 @@ In support of this, I also added due dates and task durations to the todo items.
 ### Setup
 ```bash
 git clone https://github.com/Davidyao217/Jac-todo-custom.git
+cd Jac-todo-custom
+python -m venv jac-env
+source jac-env/bin/activate   # on mac
+jac-env\Scripts\activate      # on windows
 pip install jaseci
 export GEMINI_API_KEY="your_api_key"
 ```
+Note: ensure that `jac --version` is 0.10.0
 
 ### Run
 ```bash
