@@ -10,6 +10,8 @@ I added an AI task planner that selects tasks based on available time.
 
 In support of this, I also added due dates and task durations to the todo items.
 
+![App Screenshot](assets/demo.png)
+
 ## Setup & Run
 
 ### Setup
