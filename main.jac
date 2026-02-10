@@ -168,20 +168,26 @@ cl def:pub app -> Any {
                 <button class="btn-add" onClick={add}>Add</button>
             </div>
         
-            <div style={{"padding": "10px", "background": "#f0f0f0", "margin": "10px 0"}}>
+            <div style={{"marginTop": "20px"}}>
                 <h3>Focus Planner</h3>
-                <input 
-                    type="number" 
-                    value={focus_minutes} 
-                    onChange={lambda e: Any -> None { focus_minutes = e.target.value; }} 
-                    placeholder="Mins to focus"
-                />
-                <button onClick={generate_plan}>Generate Plan</button>
-                <ol>
+                <div class="input-row">
+                    <input 
+                        type="number" 
+                        class="input"
+                        value={focus_minutes} 
+                        onChange={lambda e: Any -> None { focus_minutes = e.target.value; }} 
+                        placeholder="Mins to focus"
+                    />
+                    <button class="btn-add" onClick={generate_plan}>Generate Plan</button>
+                </div>
+                <div>
                     {[ 
-                        <li>{t["title"]} ({t["completion_time"]}m)</li> for t in plan 
+                        <div class="todo-item">
+                            <span class="todo-title">{t["title"]}</span>
+                            <span class="todo-meta">Time: {t["completion_time"]}m</span>
+                        </div> for t in plan 
                     ]}
-                </ol>
+                </div>
             </div>
             {[
                 <div key={t.id} class="todo-item">
